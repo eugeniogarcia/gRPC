@@ -2,12 +2,6 @@ syntax = "proto3";
 
 package ecommerce;
 
-option java_multiple_files = true;
-option java_package = "productinfo.servicio";
-option java_outer_classname = "ProductInfoOuterClass";
-option objc_class_prefix = "HLW";
-
-
 service ProductInfo {
     rpc addProduct(Product) returns (ProductID);
     rpc getProduct(ProductID) returns (Product);
