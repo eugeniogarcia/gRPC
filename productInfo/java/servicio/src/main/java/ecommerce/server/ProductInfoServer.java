@@ -19,7 +19,7 @@ public class ProductInfoServer {
         /* The port on which the server should run */
         int port = 50051;
         server = ServerBuilder.forPort(port)
-                .addService((BindableService) new ProductInfoImpl())
+                .addService(new ProductInfoImpl())
                 .build()
                 .start();
         
