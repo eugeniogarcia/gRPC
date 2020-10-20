@@ -48,8 +48,10 @@ func (s *server) GetOrder(ctx context.Context, orderId *wrapper.StringValue) (*p
 }
 
 // Server-side Streaming RPC
+//Recibimos un mensaje del cliente, y contestamos con n-mensajes enviados por el stream. Indicamos que ya no hay más mensajes en el stream cuando enviamos el mensaje nil
 func (s *server) SearchOrders(searchQuery *wrappers.StringValue, stream pb.OrderManagement_SearchOrdersServer) error {
 
+	//Recibimos un mensaje del cliente, y contestamos con un stream de mensajes
 	//Stream de ordenes...
 	for key, order := range orderMap {
 		log.Print(key, order)
@@ -58,7 +60,7 @@ func (s *server) SearchOrders(searchQuery *wrappers.StringValue, stream pb.Order
 			log.Print(itemStr)
 			//Verifica si el item es de los que buscamos
 			if strings.Contains(itemStr, searchQuery.Value) {
-				// Envia la respuesta en el stream
+				// Envia un mensaje por el stream al cliente
 				err := stream.Send(&order)
 				if err != nil {
 					return fmt.Errorf("error sending message to stream : %v", err)
@@ -68,24 +70,27 @@ func (s *server) SearchOrders(searchQuery *wrappers.StringValue, stream pb.Order
 			}
 		}
 	}
-	//Termina el stream
+	//Termina el stream. Le estamos indicando al cliente que ya no hay más mensajes
 	return nil
 }
 
 // Client-side Streaming RPC
+//Recibimos n-mensajes en el stream, y cuando los hemos recibido todos contestamos con el mensaje de respuesta
 func (s *server) UpdateOrders(stream pb.OrderManagement_UpdateOrdersServer) error {
 	ordersStr := "Updated Order IDs : "
 	for {
+		//Lee un mensaje del stream
 		order, err := stream.Recv()
+		//Cuando el cliente cierra el stream, enviamos la respuesta desde el servidor
 		if err == io.EOF {
-			// Finished reading the order stream.
+			//Se envia el mensaje de respuesta del servidor
 			return stream.SendAndClose(&wrapper.StringValue{Value: "Orders processed " + ordersStr})
 		}
 
 		if err != nil {
 			return err
 		}
-		// Update order
+		//Procesa el mensaje recibido en el stream
 		orderMap[order.Id] = *order
 
 		log.Printf("Order ID : %s - %s", order.Id, "Updated")
@@ -94,26 +99,28 @@ func (s *server) UpdateOrders(stream pb.OrderManagement_UpdateOrdersServer) erro
 }
 
 // Bi-directional Streaming RPC
+//Recibimos y enviamos n-mensajes por el stream del cliente y del servidor. Los mensajes estan entrelazados, el servidor empieza a enviar mensajes tan pronto el cliente se conecta, y el cliente puede enviar mensajes mientras el servidor esta contestando con mensajes
 func (s *server) ProcessOrders(stream pb.OrderManagement_ProcessOrdersServer) error {
 	batchMarker := 1
 	var combinedShipmentMap = make(map[string]pb.CombinedShipment)
 
 	//Procesa de forma indefinida
 	for {
-		//Lee una orden
+		//Recibimos un mensaje por el stream abierto desde el cliente
 		orderId, err := stream.Recv()
 		log.Printf("Reading Proc order : %s", orderId)
-
+		//Si el mensaje es el EOF, el cliente significa que el cliente ha terminado de enviar sus mensajes por el stream
 		if err == io.EOF {
 			// Client has sent all the messages
 			// Send remaining shipments
 			log.Printf("EOF : %s", orderId)
 			for _, shipment := range combinedShipmentMap {
+				//Enviamos un mensaje desde el servidor por el stream al cliente
 				if err := stream.Send(&shipment); err != nil {
 					return err
 				}
 			}
-			//Indica que el stream termina
+			//Indica que el stream termina, que el servidor ya no enviara más mensajes por el stream
 			return nil
 		}
 		if err != nil {

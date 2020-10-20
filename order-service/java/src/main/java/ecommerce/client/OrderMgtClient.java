@@ -41,9 +41,11 @@ public class OrderMgtClient {
 
 
         // Search Orders
+        //Stream de Servidor
         StringValue searchStr = StringValue.newBuilder().setValue("Google").build();
         Iterator<Order> matchingOrdersItr;
         matchingOrdersItr = stub.searchOrders(searchStr);
+        //El stream esta modelado como un iterable
         while (matchingOrdersItr.hasNext()) {
         	Order matchingOrder = matchingOrdersItr.next();
             logger.info("Search Order Response -> Matching Order - " + matchingOrder.getId());
@@ -51,20 +53,20 @@ public class OrderMgtClient {
                     + matchingOrder.toString());
         }
 
-
         // Update Orders
+        //Stream de cliente, respuesta unitaria de servidor
         invokeOrderUpdate(asyncStub);
 
         // Process Order
+        //Stream bidireccional
         invokeOrderProcess(asyncStub);
-
-
 
     }
 
 
     private static void invokeOrderUpdate(OrderManagementGrpc.OrderManagementStub asyncStub) {
 
+    	//Prepara los tres mensajes que vamos a enviar por el stream
         Order updOrder1 = Order.newBuilder()
                 .setId("102")
                 .addItems("Google Pixel 3A").addItems("Google Pixel Book")
