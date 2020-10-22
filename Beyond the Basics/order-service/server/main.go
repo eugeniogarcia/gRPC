@@ -29,7 +29,18 @@ type server struct {
 // Simple RPC
 func (s *server) AddOrder(ctx context.Context, orderReq *pb.Order) (*wrappers.StringValue, error) {
 	orderMap[orderReq.Id] = *orderReq
-	log.Println("Order : ", orderReq.Id, " -> Added")
+
+	sleepDuration  := 5
+	log.Println("Sleeping for :",  sleepDuration, "s")
+
+	time.Sleep(time.Duration(sleepDuration) * time.Second)
+
+	if ctx.Err() == context.DeadlineExceeded {
+		log.Printf("RPC has reached deadline exceeded state : %s", ctx.Err())
+		return nil, ctx.Err()
+	}
+
+	log.Println("Order : ",  orderReq.Id, " -> Added")
 	return &wrapper.StringValue{Value: "Order Added: " + orderReq.Id}, nil
 }
 
