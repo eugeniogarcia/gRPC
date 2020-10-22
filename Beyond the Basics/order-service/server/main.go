@@ -125,7 +125,7 @@ func (s *server) ProcessOrders(stream pb.OrderManagement_ProcessOrdersServer) er
 	}
 }
 
-// Intercepatodor unitario
+// Interceptador unitario
 func orderUnaryServerInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 	// Pre-processing logic
 	// Gets info about the current RPC call by examining the args passed in
