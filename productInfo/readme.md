@@ -67,7 +67,10 @@ Generamos los stubs a partir del proto file:
 protoc -I ecommerce ecommerce/product_info.proto --go_out=plugins=grpc:C:\Users\Eugenio\Downloads\gRPC\productinfo\service\ecommerce
 ```
 
-`protoc` es el compilador de protobuf que habremos instalado previamente. Nos permite generar stubs en diferentes lenguajes. Aquí especificamos go `go_out`. Si no hubieramos indicado la ruta del protofile lo habría tomado del directorio raiz. En nuestro caso hemos especificado otra ruta con `-I`.
+`protoc` es el compilador de protobuf que habremos instalado previamente. Nos permite generar stubs en diferentes lenguajes:
+
+- Aquí especificamos go con `go_out` que queremos que los stubs se generen para go, y donde queremos que se generen. Usamos un `plugin` para generar los stubs de grpc
+- Indicamos la ruta donde esta el código fuente con  `-I`
 
 Usaremos como punto de partida los stubs para añadir la lógica de negocio. Una vez añadida podemos compilar el programa:
 
