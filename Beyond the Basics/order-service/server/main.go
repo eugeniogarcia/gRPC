@@ -30,8 +30,8 @@ type server struct {
 func (s *server) AddOrder(ctx context.Context, orderReq *pb.Order) (*wrappers.StringValue, error) {
 	orderMap[orderReq.Id] = *orderReq
 
-	sleepDuration  := 5
-	log.Println("Sleeping for :",  sleepDuration, "s")
+	sleepDuration := 5
+	log.Println("Sleeping for :", sleepDuration, "s")
 
 	time.Sleep(time.Duration(sleepDuration) * time.Second)
 
@@ -40,7 +40,7 @@ func (s *server) AddOrder(ctx context.Context, orderReq *pb.Order) (*wrappers.St
 		return nil, ctx.Err()
 	}
 
-	log.Println("Order : ",  orderReq.Id, " -> Added")
+	log.Println("Order : ", orderReq.Id, " -> Added")
 	return &wrapper.StringValue{Value: "Order Added: " + orderReq.Id}, nil
 }
 

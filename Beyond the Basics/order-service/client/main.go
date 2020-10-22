@@ -9,10 +9,12 @@ import (
 
 	wrapper "github.com/golang/protobuf/ptypes/wrappers"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/status"
 )
 
 const (
-	address = "localhost:50051"
+	address      = "localhost:50051"
+	usarDeadline = true
 )
 
 func main() {
@@ -25,13 +27,26 @@ func main() {
 	}
 	defer conn.Close()
 	client := pb.NewOrderManagementClient(conn)
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+
+	var ctx context.Context
+	var cancel context.CancelFunc
+	if usarDeadline {
+		clientDeadline := time.Now().Add(time.Duration(2 * time.Second))
+		ctx, cancel = context.WithDeadline(context.Background(), clientDeadline)
+	} else {
+		ctx, cancel = context.WithTimeout(context.Background(), time.Second*5)
+	}
 	defer cancel()
 
 	// Add Order
 	order1 := pb.Order{Id: "101", Items: []string{"iPhone XS", "Mac Book Pro"}, Destination: "San Jose, CA", Price: 2300.00}
-	res, _ := client.AddOrder(ctx, &order1)
-	log.Print("AddOrder Response -> ", res.Value)
+	res, addErr := client.AddOrder(ctx, &order1)
+	if addErr != nil {
+		got := status.Code(addErr)
+		log.Printf("Error Occured -> addOrder : , %v:", got)
+	} else {
+		log.Print("AddOrder Response -> ", res.Value)
+	}
 
 	// Get Order
 	retrievedOrder, err := client.GetOrder(ctx, &wrapper.StringValue{Value: "106"})
@@ -143,7 +158,11 @@ func orderUnaryClientInterceptor(ctx context.Context, method string, req, reply 
 	// Invoking the remote method
 	err := invoker(ctx, method, req, reply, cc, opts...)
 
-	log.Printf(" Postprocesa la respuesta : %s", reply)
+	if err == nil {
+		log.Printf(" Postprocesa la respuesta : %s", reply)
+	} else {
+		log.Printf(" Postprocesa la respuesta. Hubo un error : %s", err.Error())
+	}
 
 	return err
 }

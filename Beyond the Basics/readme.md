@@ -193,3 +193,26 @@ s := grpc.NewServer(
     
     client := pb.NewOrderManagementClient(conn)
 ```
+
+# Deadlines
+
+Un deadline permite especificar una duración máxima a una petición, pero de tal forma que aplica a todas las llamadas RPC 
+Aplica al cliente. Al crear el contexto
+
+```go
+	if usarDeadline {
+		ctx, cancel = context.WithTimeout(context.Background(), time.Second*5)
+	} else {
+		clientDeadline := time.Now().Add(time.Duration(20 * time.Second))
+		ctx, cancel = context.WithDeadline(context.Background(), clientDeadline)
+    }
+```
+
+En cualquier momento podemos comprobar si se ha superado el deadline. Por ejemplo, en el servidor podríamos hacer:
+
+```go
+if ctx.Err() == context.DeadlineExceeded {
+		log.Printf("RPC has reached deadline exceeded state : %s", ctx.Err())
+		return nil, ctx.Err()
+    }
+```
