@@ -8,7 +8,9 @@ import (
 	"time"
 
 	wrapper "github.com/golang/protobuf/ptypes/wrappers"
+	epb "google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
@@ -44,6 +46,35 @@ func main() {
 	if addErr != nil {
 		got := status.Code(addErr)
 		log.Printf("Error Occured -> addOrder : , %v:", got)
+	} else {
+		log.Print("AddOrder Response -> ", res.Value)
+	}
+
+	// Add Order
+	// This is an invalid order
+	order1_err := pb.Order{Id: "-1", Items: []string{"iPhone XS", "Mac Book Pro"}, Destination: "San Jose, CA", Price: 2300.00}
+	res, addOrderError := client.AddOrder(ctx, &order1_err)
+
+	//Si devuelve un error...
+	if addOrderError != nil {
+		//Obtenemos el código de error
+		errorCode := status.Code(addOrderError)
+		if errorCode == codes.InvalidArgument {
+			log.Printf("Invalid Argument Error : %s", errorCode)
+			//Obtenemos el detalle asociado al error
+			errorStatus := status.Convert(addOrderError)
+			for _, d := range errorStatus.Details() {
+				//Comprueba el tipo informado en el detalle. Esperamos encontrar un puntero a epb.BadRequest_FieldViolation
+				switch info := d.(type) {
+				case *epb.BadRequest_FieldViolation:
+					log.Printf("Request Field Invalid: %s", info)
+				default:
+					log.Printf("Unexpected error type: %s", info)
+				}
+			}
+		} else {
+			log.Printf("Unhandled error : %s ", errorCode)
+		}
 	} else {
 		log.Print("AddOrder Response -> ", res.Value)
 	}

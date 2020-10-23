@@ -216,3 +216,83 @@ if ctx.Err() == context.DeadlineExceeded {
 		return nil, ctx.Err()
     }
 ```
+
+## Cancelación
+
+Si deseamos cancelar una ejecución bastaría con llamar al método `cancel`:
+
+```go
+	if usarDeadline {
+		ctx, cancel = context.WithTimeout(context.Background(), time.Second*5)
+	} else {
+		clientDeadline := time.Now().Add(time.Duration(20 * time.Second))
+		ctx, cancel = context.WithDeadline(context.Background(), clientDeadline)
+    }
+
+....
+
+cancel()
+```
+
+# Gestión de Errores
+
+## Crear un error
+
+Podemos crear un error personalizado:
+
+```go
+//Crea un error
+errorStatus := status.New(codes.InvalidArgument, "Invalid information received")
+```
+
+El error puede tener asociada información de detalle:
+
+```go
+//Podemos añadir detalles al error
+ds, err := errorStatus.WithDetails(
+    &epb.BadRequest_FieldViolation{
+        Field:       "ID",
+        Description: fmt.Sprintf("Order ID received is not valid %s : %s", orderReq.Id, orderReq.Description),
+    },
+```
+
+En la información de detalle hemos incluido un mensaje. En el paquete `epb "google.golang.org/genproto/googleapis/rpc/errdetails"` tenemos varios [mensajes tipo](https://godoc.org/google.golang.org/genproto/googleapis/rpc/errdetails).
+
+## Procesar un error
+
+Al hacer una llamada obtenemos tambien el posible error:
+
+```go
+res, addOrderError := client.AddOrder(ctx, &order1_err)
+```
+
+Podemos recuperar el código del error:
+
+```go
+//Si devuelve un error...
+if addOrderError != nil {
+    //Obtenemos el código de error
+    errorCode := status.Code(addOrderError)
+    if errorCode == codes.InvalidArgument {
+        log.Printf("Invalid Argument Error : %s", errorCode)
+```
+
+También podemos acceder a los detalles del error:
+
+```go
+//Obtenemos el detalle asociado al error
+errorStatus := status.Convert(addOrderError)
+
+for _, d := range errorStatus.Details() {
+    //Comprueba el tipo informado en el detalle. Esperamos encontrar un puntero a epb.BadRequest_FieldViolation
+    switch info := d.(type) {
+    case *epb.BadRequest_FieldViolation:
+        log.Printf("Request Field Invalid: %s", info)
+    default:
+        log.Printf("Unexpected error type: %s", info)
+    }
+}
+```
+
+Podemos observar como verificamos el tipo que obtenemos con el detalle, y verificamos si coincide con `*epb.BadRequest_FieldViolation`.
+
