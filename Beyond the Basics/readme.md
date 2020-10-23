@@ -460,3 +460,21 @@ header := metadata.New(map[string]string{"location": "MTV", "timestamp": time.No
 stream.SendHeader(header)
 ```
 
+# Compresion
+
+## Servidor
+
+En el servidor bastara con instalar los compresores que deseamos utilizar. El servidor automáticamente descomprimira las peticiones, y comprimirá las respuestas, cuando la petición llegue comprimida. Para instalar el compresor basta con importar el paquete:
+
+```go
+_ "google.golang.org/grpc/encoding/gzip" // Install the gzip compressor
+```
+
+## Cliente
+
+Al hacer la llamada RPC tenemos que indicar que deseamos enviarla comprimida:
+
+```go
+res, addErr = client.AddOrder(ctx, &order1_comp, grpc.UseCompressor(gzip.Name))
+```
+

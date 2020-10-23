@@ -12,6 +12,7 @@ import (
 	epb "google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/encoding/gzip"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
@@ -42,7 +43,9 @@ func main() {
 	}
 	defer cancel()
 
+	//******************************************
 	// Add Order
+	//******************************************
 	order1 := pb.Order{Id: "101", Items: []string{"iPhone XS", "Mac Book Pro"}, Destination: "San Jose, CA", Price: 2300.00}
 	res, addErr := client.AddOrder(ctx, &order1)
 	if addErr != nil {
@@ -52,7 +55,21 @@ func main() {
 		log.Print("AddOrder Response -> ", res.Value)
 	}
 
-	// Add Order
+	//******************************************
+	// Add Order (demuestra compresión)
+	//******************************************
+	order1_comp := pb.Order{Id: "2", Items: []string{"iPhone XS", "Mac Book Pro"}, Destination: "San Jose, CA", Price: 2300.00}
+	res, addErr = client.AddOrder(ctx, &order1_comp, grpc.UseCompressor(gzip.Name))
+	if addErr != nil {
+		got := status.Code(addErr)
+		log.Printf("Error Occured -> addOrder : , %v:", got)
+	} else {
+		log.Print("AddOrder Response -> ", res.Value)
+	}
+
+	//******************************************
+	// Add Order (demuesrta gestión de errores)
+	//******************************************
 	// This is an invalid order
 	order1_err := pb.Order{Id: "-1", Items: []string{"iPhone XS", "Mac Book Pro"}, Destination: "San Jose, CA", Price: 2300.00}
 	res, addOrderError := client.AddOrder(ctx, &order1_err)
@@ -81,8 +98,9 @@ func main() {
 		log.Print("AddOrder Response -> ", res.Value)
 	}
 
+	//******************************************
 	//Usa metadatos
-
+	//******************************************
 	//Primera forma de crear metadatos. Añadiendo duplas
 	md := metadata.Pairs(
 		"timestamp", time.Now().Format(time.StampNano),
