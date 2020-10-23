@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	pb "interceptors/cliente/ecommerce"
 	"io"
 	"log"
@@ -11,6 +12,7 @@ import (
 	epb "google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
 
@@ -77,6 +79,48 @@ func main() {
 		}
 	} else {
 		log.Print("AddOrder Response -> ", res.Value)
+	}
+
+	//Usa metadatos
+
+	//Primera forma de crear metadatos. Añadiendo duplas
+	md := metadata.Pairs(
+		"timestamp", time.Now().Format(time.StampNano),
+		"kn", "vn",
+	)
+	//Crea el contexto con los metadatos. Machacaría cualquier metadato que se hubiera añadido previamente al contexto
+	mdCtx := metadata.NewOutgoingContext(context.Background(), md)
+
+	//Segunda forma de crear metadatos. Añadiendo metadatos a un contexto ya existente
+	ctxA := metadata.AppendToOutgoingContext(mdCtx, "k1", "v1", "k1", "v2", "k2", "v3")
+
+	//Hacemos la llamada
+	// Variables en las que vamos a guardar la cabecera y metadatos de la respuesta
+	var header, trailer metadata.MD
+
+	// RPC: Add Order
+	order1_md := pb.Order{Id: "1", Items: []string{"iPhone XS", "Mac Book Pro"}, Destination: "San Jose, CA", Price: 2300.00}
+	res, _ = client.AddOrder(ctxA, &order1_md, grpc.Header(&header), grpc.Trailer(&trailer))
+
+	log.Print("AddOrder Response -> ", res.Value)
+
+	// Obtenemos el valor de las cabeceras. Los metadatos son transportados como cabeceras custom
+	if t, ok := header["timestamp"]; ok {
+		log.Printf("timestamp from header:\n")
+		for i, e := range t {
+			fmt.Printf(" %d. %s\n", i, e)
+		}
+	} else {
+		log.Fatal("timestamp expected but doesn't exist in header")
+	}
+
+	if l, ok := header["location"]; ok {
+		log.Printf("location from header:\n")
+		for i, e := range l {
+			fmt.Printf(" %d. %s\n", i, e)
+		}
+	} else {
+		log.Fatal("location expected but doesn't exist in header")
 	}
 
 	// Get Order

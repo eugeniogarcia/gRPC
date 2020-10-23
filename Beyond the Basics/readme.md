@@ -344,3 +344,58 @@ Y podríamos registrar un segundo servicio RPC:
 // Register Greeter Service on gRPC orderMgtServer
 hello_pb.RegisterGreeterServer(grpcServer, &helloServer{})
 ```
+
+# Metadata
+
+Los metadatos que incluyamos en una llamada viajaran como una cabecera más que se añadirá a las cabeceras estandard. Los metadatos los incluimos en el contextos de la llamada
+
+## Cliente
+
+Los metadatos se especifican en el contexto. Podemos crear un conjunto de metadatos informado parejas de key, value, y luego crear el contexto con estos metadatos:
+
+```go
+//Primera forma de crear metadatos. Añadiendo duplas
+md := metadata.Pairs(
+    "timestamp", time.Now().Format(time.StampNano),
+    "kn", "vn",
+)
+//Crea el contexto con los metadatos. Machacaría cualquier metadato que se hubiera añadido previamente al contexto
+mdCtx := metadata.NewOutgoingContext(context.Background(), md)
+```
+
+Si por el contrario tenemos un contexto, que a lo mejor ya tiene algún metadato especificado, y queremos añadir más metadatos, podemos actualizar el contexto:
+
+```go
+//Segunda forma de crear metadatos. Añadiendo metadatos a un contexto ya existente
+ctxA := metadata.AppendToOutgoingContext(mdCtx, "k1", "v1", "k1", "v2", "k2", "v3")
+```
+
+Aquí hemos creado un nuevo contexto, `ctxA` a partir de uno ya existente `mdCtx`. Si hacemos la llamada con este contexto viajaran los metadatos.
+
+Supongamos que queremos acceder a la cabecera  y metadatos de la respuesta. Para ello haremos que se guarde la cabecera de la respuesta en una variable:
+
+```go
+//Variable donde guardar la cabecera de la respuesta
+var header, trailer metadata.MD
+
+// RPC: Add Order
+order1_md := pb.Order{Id: "1", Items: []string{"iPhone XS", "Mac Book Pro"}, Destination: "San Jose, CA", Price: 2300.00}
+res, _ = client.AddOrder(ctxA, &order1_md, grpc.Header(&header), grpc.Trailer(&trailer))
+```
+
+Podemos acceder a las cabeceras:
+
+```go
+if t, ok := header["timestamp"]; ok {
+    log.Printf("timestamp from header:\n")
+    for i, e := range t {
+        fmt.Printf(" %d. %s\n", i, e)
+    }
+} else {
+    log.Fatal("timestamp expected but doesn't exist in header")
+}
+```
+
+## Servidor
+
+
