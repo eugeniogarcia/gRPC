@@ -351,6 +351,8 @@ Los metadatos que incluyamos en una llamada viajaran como una cabecera más que 
 
 ## Cliente
 
+### Crear metadatos
+
 Los metadatos se especifican en el contexto. Podemos crear un conjunto de metadatos informado parejas de key, value, y luego crear el contexto con estos metadatos:
 
 ```go
@@ -371,6 +373,8 @@ ctxA := metadata.AppendToOutgoingContext(mdCtx, "k1", "v1", "k1", "v2", "k2", "v
 ```
 
 Aquí hemos creado un nuevo contexto, `ctxA` a partir de uno ya existente `mdCtx`. Si hacemos la llamada con este contexto viajaran los metadatos.
+
+### Leer metadatos de la respuesta
 
 Supongamos que queremos acceder a la cabecera  y metadatos de la respuesta. Para ello haremos que se guarde la cabecera de la respuesta en una variable:
 
@@ -398,4 +402,61 @@ if t, ok := header["timestamp"]; ok {
 
 ## Servidor
 
+### Leer metadatos de la petición
+
+Recuperamos los metadatos accediendo al contexto:
+
+```go
+//Obtiene los metadatos del contexto
+md, metadataAvailable := metadata.FromIncomingContext(ctx)
+
+//Si no hay metadatos devuelve un error
+if !metadataAvailable {
+    return nil, status.Errorf(codes.DataLoss, "UnaryEcho: failed to get metadata")
+}
+```
+
+Podemos obtener el valor del metadato de la misma forma que en el cliente:
+
+```go
+//Si hay metadatos, recupera el metadato timestamp, y los detalles asociados
+if t, ok := md["timestamp"]; ok {
+    fmt.Printf("timestamp from metadata:\n")
+    for i, e := range t {
+        fmt.Printf("====> Metadata %d. %s\n", i, e)
+    }
+}
+```
+
+### Escribir metadatos en la respuesta
+
+Añadir metadatos en la respuesta:
+
+```go
+//Creamos metadatos
+header := metadata.New(map[string]string{"location": "San Jose", "timestamp": time.Now().Format(time.StampNano)})
+
+//Los añadimos a la cabecera de respuesta
+grpc.SendHeader(ctx, header)
+```
+
+### Stream
+
+Podemos escribir los metadatos bien en el trailer - el trailer se envia con el frame que indica el final del stream:
+
+```go
+//Añade los metadatos al trailer
+defer func() {
+    trailer := metadata.Pairs("timestamp", time.Now().Format(time.StampNano))
+    stream.SetTrailer(trailer)
+}()
+```
+
+O podemos añadirlos a la cabecera - de cada mensaje del stream:
+
+```go
+//Añade los metadatos al header
+header := metadata.New(map[string]string{"location": "MTV", "timestamp": time.Now().Format(time.StampNano)})
+stream.SendHeader(header)
+```
 

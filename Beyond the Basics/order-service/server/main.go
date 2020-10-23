@@ -15,6 +15,7 @@ import (
 	epb "google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
 )
@@ -32,7 +33,27 @@ type server struct {
 
 // Simple RPC
 func (s *server) AddOrder(ctx context.Context, orderReq *pb.Order) (*wrappers.StringValue, error) {
-	orderMap[orderReq.Id] = *orderReq
+
+	//Obtiene los metadatos del contexto
+	md, metadataAvailable := metadata.FromIncomingContext(ctx)
+
+	//Si no hay metadatos devuelve un error
+	if !metadataAvailable {
+		return nil, status.Errorf(codes.DataLoss, "UnaryEcho: failed to get metadata")
+	}
+
+	//Si hay metadatos, recupera el metadato timestamp, y los detalles asociados
+	if t, ok := md["timestamp"]; ok {
+		fmt.Printf("timestamp from metadata:\n")
+		for i, e := range t {
+			fmt.Printf("====> Metadata %d. %s\n", i, e)
+		}
+	}
+
+	//Creamos metadatos
+	header := metadata.New(map[string]string{"location": "San Jose", "timestamp": time.Now().Format(time.StampNano)})
+	//Los añadimos a la cabecera de respuesta
+	grpc.SendHeader(ctx, header)
 
 	if orderReq.Id == "-1" {
 		log.Printf("Order ID is invalid! -> Received Order ID %s", orderReq.Id)
@@ -67,6 +88,16 @@ func (s *server) GetOrder(ctx context.Context, orderId *wrapper.StringValue) (*p
 
 // Server-side Streaming RPC
 func (s *server) SearchOrders(searchQuery *wrappers.StringValue, stream pb.OrderManagement_SearchOrdersServer) error {
+
+	//Añade los metadatos al trailer
+	defer func() {
+		trailer := metadata.Pairs("timestamp", time.Now().Format(time.StampNano))
+		stream.SetTrailer(trailer)
+	}()
+
+	//Añade los metadatos al header
+	header := metadata.New(map[string]string{"location": "MTV", "timestamp": time.Now().Format(time.StampNano)})
+	stream.SendHeader(header)
 
 	for key, order := range orderMap {
 		for _, itemStr := range order.Items {
