@@ -296,3 +296,51 @@ for _, d := range errorStatus.Details() {
 
 Podemos observar como verificamos el tipo que obtenemos con el detalle, y verificamos si coincide con `*epb.BadRequest_FieldViolation`.
 
+# Multiplexing
+
+## Cliente
+
+Podemos usar el mismo canal/conexión para contactar con diferentes servicios RPC. Por ejemplo, establecemos una conexión:
+
+```go
+conn, err := grpc.Dial(address, grpc.WithInsecure())
+```
+
+Usamos la conexión para utilizar el servicio RPC:
+
+```go
+orderManagementClient := pb.NewOrderManagementClient(conn)
+
+order1 := pb.Order{Id: "101", Items:[]string{"iPhone XS", "Mac Book Pro"}, Destination:"San Jose, CA", Price:2300.00}
+
+res, addErr := orderManagementClient.AddOrder(ctx, &order1)
+```
+
+Y la misma conexión para contactar con otro servicio RPC:
+
+```go
+helloClient := hwpb.NewGreeterClient(conn)
+        
+helloResponse, err := helloClient.SayHello(hwcCtx, &hwpb.HelloRequest{Name: "gRPC Up and Running!"})
+```
+
+Notese que en el ejemplo anterior usamos dos contextos diferentes - podríamos también haber usado el mismo.
+
+
+## Servidor
+
+podemos registrar por el mismo canal varios servicios RPC:
+
+```go
+grpcServer := grpc.NewServer()
+
+// Register Order Management service on gRPC orderMgtServer
+ordermgt_pb.RegisterOrderManagementServer(grpcServer, &orderMgtServer{})
+```
+
+Y podríamos registrar un segundo servicio RPC:
+
+```go
+// Register Greeter Service on gRPC orderMgtServer
+hello_pb.RegisterGreeterServer(grpcServer, &helloServer{})
+```
