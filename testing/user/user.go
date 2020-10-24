@@ -11,3 +11,11 @@ type User struct {
 func (u *User) Use() error {
 	return u.Doer.DoSomething(123, "Hello GoMock")
 }
+
+//UseSeveral metodo que llama a varios metodos del mock
+func (u *User) UseSeveral(mensaje ...string) error {
+	for i, val := range mensaje {
+		u.Doer.DoSomething(i, val)
+	}
+	return nil
+}
