@@ -1,3 +1,116 @@
+# Resumen
+
+## Interceptors (servidor grpc y conexión)
+
+Los interceptadores se configuran a nivel del servidor grpc o de la conexión en el caso del cliente. Todas las peticiones que lleguen al servidor, o que se envien usando la conexión en el cliente, ejecutaran el interceptor, conviertiendo así al interceptor en un componente ideal para definir cross cutting concerns:
+
+En el servidor, indicamos los interceptors al crear el servidor grpc:
+
+```go
+s := grpc.NewServer(
+	grpc.UnaryInterceptor(interceptors.OrderUnaryServerInterceptor),
+	grpc.StreamInterceptor(interceptors.OrderServerStreamInterceptor))
+```
+
+En el cliente lo hacemos al crear la conexión:
+
+```go
+conn, err := grpc.Dial(address, grpc.WithInsecure(),
+	grpc.WithUnaryInterceptor(interceptors.OrderUnaryClientInterceptor),
+	grpc.WithStreamInterceptor(interceptors.ClientStreamInterceptor))
+```
+
+## Multiplexing (registro del cliente y servidor)
+
+Si queremos servir varios servicios RPC con la misma conexión, lo que haremos es asociar al mismo servidor grpc varios servicios RPC:
+
+```go
+grpcServer := grpc.NewServer()
+
+ordermgt_pb.RegisterOrderManagementServer(grpcServer, &orderMgtServer{})
+
+hello_pb.RegisterGreeterServer(grpcServer, &helloServer{})
+```
+
+De la misma forma en el cliente si queremos invocar a estos dos servicios, en la misma conexión podemos registrar dos clientes:
+
+```go
+conn, err := grpc.Dial(address, grpc.WithInsecure())
+
+orderManagementClient := pb.NewOrderManagementClient(conn)
+
+helloClient := hwpb.NewGreeterClient(conn)
+```
+
+## Timeout, Dealine, Metadatos (contexto)
+
+El timeout, deadline o los metadatos se definen a nivel de contexto. Esto es, en cada llamada podemos especifica estas propiedades. Las propiedades viajaran en forma de cabecera en el mensaje - header - o el trail en el caso del último mensaje de un stream.
+
+Con un mismo cliente y/o conexión, podemos hacer llamadas con distintas características de time-out, deadline o metadatos.
+
+## Gestión de errores (llamada)
+
+Los errores viajan en la respuesta al servicio. Un error en su caso más complejo tiene un código e información de detalle:
+
+```go
+res, addErr = client.AddOrder(ctx, &order)
+//Si devuelve un error...
+if addErr != nil {
+	//Obtenemos el código de error
+	errorCode := status.Code(addErr)
+```
+
+y la información de detalle:
+
+```go
+//Obtenemos el detalle asociado al error
+errorStatus := status.Convert(addErr)
+for _, d := range errorStatus.Details() {
+	//Comprueba el tipo informado en el detalle. Esperamos encontrar un puntero a epb.BadRequest_FieldViolation
+	switch info := d.(type) {
+	case *epb.BadRequest_FieldViolation:
+		log.Printf("Request Field Invalid: %s", info)
+	default:
+		log.Printf("Unexpected error type: %s", info)
+	}
+```
+
+Los datos de detalle pueden ser de cualquier tipo. Google ha definido una serie de tipos estandar que podemos reutilizar. 
+
+La configuración básica sería un código de error:
+
+```go
+errorStatus := status.New(codes.InvalidArgument, "Invalid information received")
+```
+
+y opcionalmente podemos añadir información de detalle. En este caso hemos usado uno de los tipos predefinidos por google, `epb.BadRequest_FieldViolation`:
+
+```go
+//Podemos añadir detalles al error
+ds, err := errorStatus.WithDetails(
+	&epb.BadRequest_FieldViolation{
+		Field:       "ID",
+		Description: fmt.Sprintf("Order ID received is not valid %s : %s", orderReq.Id, orderReq.Description),
+	},
+)
+```
+
+
+
+## Compresion (llamada)
+
+Si queremos comprimir los datos, lo haremos llamada a llamada:
+
+```go
+res, addErr = client.AddOrder(ctx, &order, grpc.UseCompressor(gzip.Name))
+```
+
+En el servidor bastara con habilitar los algoritmos de compresión que deseemos soportar:
+
+```go
+import _ "google.golang.org/grpc/encoding/gzip" // Install the gzip compressor
+```
+
 # Interceptors
 
 Hay dos tipos de interceptors:
