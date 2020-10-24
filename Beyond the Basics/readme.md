@@ -478,3 +478,68 @@ Al hacer la llamada RPC tenemos que indicar que deseamos enviarla comprimida:
 res, addErr = client.AddOrder(ctx, &order1_comp, grpc.UseCompressor(gzip.Name))
 ```
 
+# Balanceo de Carga
+
+## Cliente
+
+Vamos a describir una implementación de balanceo de carga en el cliente. Lo primero será definir un resolver que nos permita traducir un esquema con las direcciones - el equivalente a una VIP o a una resolución de DNS:
+
+```go
+func init() {
+	resolver.Register(&ns.ExampleResolverBuilder{})
+}
+```
+
+`ExampleResolverBuilder` es un builder que nos permitirá construir el resolver:
+
+```go
+const (
+	exampleScheme      = "example"
+	exampleServiceName = "lb.example.grpc.io"
+)
+
+var addrs = []string{"localhost:50051", "localhost:50052"}
+
+type ExampleResolverBuilder struct{}
+
+func (*ExampleResolverBuilder) Build(target resolver.Target, cc resolver.ClientConn, opts resolver.BuildOption) (resolver.Resolver, error) {
+	r := &exampleResolver{
+		target: target,
+		cc:     cc,
+		addrsStore: map[string][]string{
+			exampleServiceName: addrs, // "lb.example.grpc.io": "localhost:50051", "localhost:50052"
+		},
+	}
+	r.start()
+	return r, nil
+}
+
+func (*ExampleResolverBuilder) Scheme() string { return exampleScheme } // "example"
+```
+
+Implementa dos métodos. El método `Scheme` nos dice para que esquema aplicará el resolver - en nuestro caso `example`. 
+
+El segundo método `Build` construye el resolver. El resolver es la pieza que nos devolverá las direcciones asociadas al esquema. En este caso retornará dos direcciones para el servicio `lb.example.grpc.io`.
+
+El resolver se define como:
+
+```go
+type exampleResolver struct {
+	target     resolver.Target
+	cc         resolver.ClientConn
+	addrsStore map[string][]string
+}
+
+func (r *exampleResolver) start() {
+	addrStrs := r.addrsStore[r.target.Endpoint]
+	addrs := make([]resolver.Address, len(addrStrs))
+	for i, s := range addrStrs {
+		addrs[i] = resolver.Address{Addr: s}
+	}
+	r.cc.UpdateState(resolver.State{Addresses: addrs})
+}
+
+func (*exampleResolver) ResolveNow(o resolver.ResolveNowOption) {}
+
+func (*exampleResolver) Close()  
+```
